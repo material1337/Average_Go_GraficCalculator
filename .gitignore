@@ -1,5 +1,5 @@
 *
 !main.go
 !go.mod
-!go.sum
+go.sum
 !.gitignore
