@@ -79,10 +79,9 @@ func main() {
 		if expression == "" {
 			return
 		}
-		// Используем библиотеку expr для вычисления
 		result, err := expr.Eval(expression, nil)
 		if err != nil {
-			display.SetText("Ошибка")
+			display.SetText("Error")
 			return
 		}
 		display.SetText(fmt.Sprintf("%v", result))
