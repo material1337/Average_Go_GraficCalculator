@@ -10,14 +10,16 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/expr-lang/expr"
 	"image/color"
+	"regexp"
+	"strings"
 )
 
 func main() {
-	//App
+	// App
 	myApp := app.New()
 	myWindow := myApp.NewWindow("Calculator")
 
-	//Display
+	// Display
 	display := widget.NewEntry()
 	display.SetPlaceHolder("0")
 	display.Disable()
@@ -28,35 +30,57 @@ func main() {
 
 	displayContainer := container.New(layout.NewMaxLayout(), canvas.NewRectangle(color.White), display)
 
-	//For monitoring the status of brackets
+	// For monitoring the status of brackets
 	isOpenBracket := true
 
-	//Add symbol to label(Entry)
+	// Add symbol to label (Entry)
 	appendToDisplay := func(char string) {
 		display.SetText(display.Text + char)
 	}
 
-	//Full clear func
+	// Full clear func
 	clearDisplay := func() {
 		display.SetText("")
 		isOpenBracket = true
 	}
 
-	//Brackets func
+	// Brackets func
 	toggleBracket := func() {
 		if isOpenBracket {
 			appendToDisplay("(")
 		} else {
 			appendToDisplay(")")
 		}
-		isOpenBracket = !isOpenBracket //Switch
+		isOpenBracket = !isOpenBracket // Switch
 	}
 
-	//Delete last char  func( very hard to write)
+	// Percent func
+	percent := func() {
+		currentText := display.Text
+		if currentText == "" {
+			return
+		}
+
+		// Find the last number before the percent sign
+		re := regexp.MustCompile(`(\d+\.?\d*)\s*$`)
+		matches := re.FindStringSubmatch(currentText)
+		if len(matches) < 2 {
+			return // No valid number found
+		}
+
+		// Append the percentage calculation
+		number := matches[1]
+		// Transform e.g., "50" to "(50 / 100)"
+		percentageExpr := fmt.Sprintf("(%s / 100)", number)
+		// Replace the number with the percentage expression
+		newText := re.ReplaceAllString(currentText, percentageExpr)
+		display.SetText(newText)
+	}
+
+	// Delete last char func
 	deleteLastChar := func() {
 		currentText := display.Text
 		if len(currentText) > 0 {
-
 			newText := currentText[:len(currentText)-1]
 			display.SetText(newText)
 
@@ -73,12 +97,39 @@ func main() {
 		}
 	}
 
-	//Main calculation func
+	// Main calculation func
 	calculate := func() {
 		expression := display.Text
 		if expression == "" {
 			return
 		}
+
+		// Replace commas with dots for decimal numbers
+		expression = strings.ReplaceAll(expression, ",", ".")
+
+		// Handle percentage expressions
+		// e.g., "50 + 10%" becomes "50 + (10 / 100 * 50)"
+		re := regexp.MustCompile(`(\d+\.?\d*)\s*%`)
+		for re.MatchString(expression) {
+			matches := re.FindStringSubmatch(expression)
+			if len(matches) < 2 {
+				break
+			}
+			number := matches[1]
+			// Find the base number before the percentage
+			// We look for a number or expression before the percentage
+			baseRe := regexp.MustCompile(`(\d+\.?\d*)\s*[\+\-\*/]\s*\d+\.?\d*\s*%`)
+			baseMatches := baseRe.FindStringSubmatch(expression)
+			var base string
+			if len(baseMatches) > 1 {
+				base = baseMatches[1]
+			} else {
+				base = "1" // Default base for cases like "10%"
+			}
+			percentageExpr := fmt.Sprintf("(%s / 100 * %s)", number, base)
+			expression = re.ReplaceAllString(expression, percentageExpr)
+		}
+
 		result, err := expr.Eval(expression, nil)
 		if err != nil {
 			display.SetText("Error")
@@ -88,7 +139,7 @@ func main() {
 		isOpenBracket = true
 	}
 
-	//Buttons
+	// Buttons
 	button1 := widget.NewButton("1", func() { appendToDisplay("1") })
 	button2 := widget.NewButton("2", func() { appendToDisplay("2") })
 	button3 := widget.NewButton("3", func() { appendToDisplay("3") })
@@ -100,17 +151,17 @@ func main() {
 	button9 := widget.NewButton("9", func() { appendToDisplay("9") })
 	button10 := widget.NewButton("AC", func() { clearDisplay() })
 	button11 := widget.NewButton("()", func() { toggleBracket() })
-	button12 := widget.NewButton("%", func() { appendToDisplay("%") })
+	button12 := widget.NewButton("%", func() { percent() })
 	button13 := widget.NewButton("/", func() { appendToDisplay("/") })
 	button14 := widget.NewButton("*", func() { appendToDisplay("*") })
 	button15 := widget.NewButton("-", func() { appendToDisplay("-") })
 	button16 := widget.NewButton("+", func() { appendToDisplay("+") })
 	button17 := widget.NewButton("=", func() { calculate() })
 	button18 := widget.NewButton("Del", func() { deleteLastChar() })
-	button19 := widget.NewButton(",", func() { appendToDisplay(",") })
+	button19 := widget.NewButton(",", func() { appendToDisplay(".") })
 	button20 := widget.NewButton("0", func() { appendToDisplay("0") })
 
-	//GridLayout 4 paragraphs
+	// GridLayout 4 columns
 	grid := container.New(layout.NewGridLayout(4),
 		button10, button11, button12, button13,
 		button7, button8, button9, button14,
@@ -118,12 +169,12 @@ func main() {
 		button1, button2, button3, button16,
 		button20, button19, button18, button17)
 
-	//button + entry
+	// Button + entry
 	content := container.NewVBox(
 		displayContainer,
 		grid,
 	)
-	//End
+	// End
 	myWindow.SetContent(content)
 	myWindow.Resize(fyne.NewSize(300, 250))
 	myWindow.SetFixedSize(true)
